@@ -2,15 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, BarChart2, Package, Megaphone, Bell, Users } from "lucide-react"
+import { LayoutDashboard, Settings2, Package, Megaphone, Bell, Users } from "lucide-react"
 
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { name: "Analytics", icon: BarChart2, href: "/analytics" },
   { name: "Products", icon: Package, href: "/products" },
   { name: "Campaigns", icon: Megaphone, href: "/campaigns" },
   { name: "Notifications", icon: Bell, href: "/notifications" },
   { name: "Leads", icon: Users, href: "/leads" },
+  // { name: "Settings", icon: Settings2, href: "/settings" },
 ]
 
 export function Sidebar() {

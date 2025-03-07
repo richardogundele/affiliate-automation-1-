@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { fetchCampaigns, fetchProducts, createCampaign, updateCampaign, deleteCampaign, getExistingProducts } from "@/lib/api"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -42,10 +42,16 @@ interface Campaign {
   created_at: string
 }
 
+// Update the Product interface to match the one from products page
 interface Product {
   id: string
   name: string
   description: string
+  price: number
+  category: string
+  affiliateLink: string
+  imageUrl: string
+  created_at: string
 }
 
 export default function CampaignsPage() {
@@ -66,7 +72,7 @@ export default function CampaignsPage() {
 
   const { data: productsData, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
-    queryFn: getExistingProducts,
+    queryFn: fetchProducts, // Use the same fetchProducts function from products page
     retry: false,
     initialData: []
   })
@@ -94,7 +100,7 @@ export default function CampaignsPage() {
     },
   })
 
-  const updateCampaignMutation = useMutation({
+  const updateCampaignMutation = useMutation<Campaign, unknown, Campaign>({
     mutationFn: updateCampaign,
     onSuccess: (updatedCampaign) => {
       queryClient.setQueryData<Campaign[]>(["campaigns"], (old = []) =>
@@ -122,23 +128,24 @@ export default function CampaignsPage() {
     },
   })
 
+  // Update the handleAddCampaign function to include performance data
   const handleAddCampaign = (product: Product) => {
     const newCampaign: Partial<Campaign> = {
       name: product.name,
       productId: product.id,
       status: "Paused",
-      budget: 1000, // Default budget
+      budget: 1000,
       startDate: new Date().toISOString().split("T")[0],
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 30 days from now
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       targetAudience: "All",
-      platform: "Facebook", // Default platform
-      performance: {
+      platform: "Facebook",
+      performance: {  // Initialize with default values
         impressions: 0,
         clicks: 0,
         conversions: 0,
         spend: 0,
-        revenue: 0,
-      },
+        revenue: 0
+      }
     }
     addCampaignMutation.mutate(newCampaign as Campaign)
   }
@@ -157,10 +164,33 @@ export default function CampaignsPage() {
     }
   }
 
-  const handleCreateCampaign = (e: React.FormEvent) => {
-    e.preventDefault()
-    addCampaignMutation.mutate(newCampaign as Campaign)
-  }
+  // First, update the handleCreateCampaign function
+  const handleCreateCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const selectedProduct = products.find(p => p.id === newCampaign.product_id);
+    
+    if (selectedProduct) {
+      const campaign: Partial<Campaign> = {
+        name: newCampaign.name,
+        productId: selectedProduct.id,
+        status: "Paused",
+        platform: "Facebook",
+        budget: 1000,
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        targetAudience: "All",
+        performance: {
+          impressions: 0,
+          clicks: 0,
+          conversions: 0,
+          spend: 0,
+          revenue: 0
+        }
+      };
+
+      addCampaignMutation.mutate(campaign as Campaign);
+    }
+  };
 
   if (campaignsLoading || productsLoading) return <div>Loading...</div>
 
@@ -184,20 +214,17 @@ export default function CampaignsPage() {
             {products && products.length > 0 ? (
               <form onSubmit={handleCreateCampaign} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Campaign Name</Label>
-                  <Input
-                    id="name"
-                    value={newCampaign.name}
-                    onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
-                    placeholder="Enter campaign name"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="product">Select Product</Label>
                   <Select
                     value={newCampaign.product_id}
-                    onValueChange={(value) => setNewCampaign({ ...newCampaign, product_id: value })}
+                    onValueChange={(value) => {
+                      const selectedProduct = products.find(p => p.id === value);
+                      setNewCampaign({
+                        ...newCampaign,
+                        product_id: value,
+                        name: selectedProduct ? `Campaign for ${selectedProduct.name}` : ''
+                      });
+                    }}
                     required
                   >
                     <SelectTrigger>
@@ -206,7 +233,21 @@ export default function CampaignsPage() {
                     <SelectContent>
                       {products.map((product) => (
                         <SelectItem key={product.id} value={product.id}>
-                          {product.name}
+                          <div className="flex items-center gap-2">
+                            {product.imageUrl && (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="w-8 h-8 object-cover rounded"
+                              />
+                            )}
+                            <div>
+                              <div className="font-medium">{product.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                ${product.price}
+                              </div>
+                            </div>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -249,118 +290,133 @@ export default function CampaignsPage() {
   )
 }
 
-function CampaignCard({
-  campaign,
-  product,
-  onStart,
-  onEnd,
-  onDelete,
-}: {
-  campaign: Campaign
-  product?: Product
-  onStart: () => void
-  onEnd: () => void
-  onDelete: () => void
-}) {
+// Update the LineChart section in CampaignCard component
+interface CampaignCardProps {
+  campaign: Campaign;
+  product: Product | undefined;
+  onStart: () => void;
+  onEnd: () => void;
+  onDelete: () => void;
+}
+
+// Then, update the CampaignCard component to handle undefined performance data
+function CampaignCard({ campaign, product, onStart, onEnd, onDelete }: CampaignCardProps) {
+  const defaultPerformance = {
+    impressions: 0,
+    clicks: 0,
+    conversions: 0,
+    spend: 0,
+    revenue: 0
+  };
+
+  // Use nullish coalescing to provide default values
+  const performance = campaign?.performance ?? defaultPerformance;
+
+  // Memoize chart data to prevent recalculation on every render
+  const chartData = useMemo(() => [
+    { name: "Day 1", value: performance.impressions },
+    { name: "Day 2", value: Math.round(performance.impressions * 1.2) },
+    { name: "Day 3", value: Math.round(performance.impressions * 1.5) },
+    { name: "Day 4", value: Math.round(performance.impressions * 1.3) },
+    { name: "Day 5", value: Math.round(performance.impressions * 1.8) }
+  ], [performance.impressions]);
+
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle>{product?.name || "Unknown Product"}</CardTitle>
-          <Badge variant={campaign.status === "Active" ? "default" : "secondary"}>{campaign.status}</Badge>
+          <div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Platform</p>
+                <p className="font-medium">{campaign.platform}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Budget</p>
+                <p className="font-medium">${campaign.budget}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Start Date</p>
+                <p className="font-medium">{campaign.startDate}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">End Date</p>
+                <p className="font-medium">{campaign.endDate}</p>
+              </div>
+            </div>
+            <Tabs defaultValue="performance">
+              <TabsList>
+                <TabsTrigger value="performance">Performance</TabsTrigger>
+                <TabsTrigger value="audience">Audience</TabsTrigger>
+              </TabsList>
+              <TabsContent value="performance">
+                <div className="h-[200px] mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="value" stroke="#8884d8" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Impressions</p>
+                    <p className="text-lg font-semibold">
+                      {performance.impressions.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Clicks</p>
+                    <p className="text-lg font-semibold">
+                      {performance.clicks.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Conversions</p>
+                    <p className="text-lg font-semibold">
+                      {performance.conversions.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Revenue</p>
+                    <p className="text-lg font-semibold">
+                      ${performance.revenue.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="audience">
+                <p className="mt-4">{campaign.targetAudience}</p>
+              </TabsContent>
+            </Tabs>
+            <div className="flex justify-end space-x-2 mt-4">
+              {campaign.status !== "Active" && (
+                <Button variant="outline" onClick={onStart}>
+                  <PlayCircle className="h-4 w-4 mr-2" />
+                  Start
+                </Button>
+              )}
+              {campaign.status === "Active" && (
+                <Button variant="outline" onClick={onEnd}>
+                  <StopCircle className="h-4 w-4 mr-2" />
+                  End
+                </Button>
+              )}
+              <Button variant="outline" onClick={onDelete} className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+              <Button variant="outline">
+                <BarChart2 className="h-4 w-4 mr-2" />
+                Analytics
+              </Button>
+            </div>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Platform</p>
-            <p className="font-medium">{campaign.platform}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Budget</p>
-            <p className="font-medium">${campaign.budget}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Start Date</p>
-            <p className="font-medium">{campaign.startDate}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">End Date</p>
-            <p className="font-medium">{campaign.endDate}</p>
-          </div>
-        </div>
-        <Tabs defaultValue="performance">
-          <TabsList>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="audience">Audience</TabsTrigger>
-          </TabsList>
-          <TabsContent value="performance">
-            <div className="h-[200px] mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={[
-                    { name: "Day 1", value: campaign.performance.impressions },
-                    { name: "Day 2", value: campaign.performance.impressions * 1.2 },
-                    { name: "Day 3", value: campaign.performance.impressions * 1.5 },
-                    { name: "Day 4", value: campaign.performance.impressions * 1.3 },
-                    { name: "Day 5", value: campaign.performance.impressions * 1.8 },
-                  ]}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#8884d8" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Impressions</p>
-                <p className="text-lg font-semibold">{campaign.performance.impressions.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Clicks</p>
-                <p className="text-lg font-semibold">{campaign.performance.clicks.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Conversions</p>
-                <p className="text-lg font-semibold">{campaign.performance.conversions.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Revenue</p>
-                <p className="text-lg font-semibold">${campaign.performance.revenue.toLocaleString()}</p>
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="audience">
-            <p className="mt-4">{campaign.targetAudience}</p>
-          </TabsContent>
-        </Tabs>
-        <div className="flex justify-end space-x-2 mt-4">
-          {campaign.status !== "Active" && (
-            <Button variant="outline" onClick={onStart}>
-              <PlayCircle className="h-4 w-4 mr-2" />
-              Start
-            </Button>
-          )}
-          {campaign.status === "Active" && (
-            <Button variant="outline" onClick={onEnd}>
-              <StopCircle className="h-4 w-4 mr-2" />
-              End
-            </Button>
-          )}
-          <Button variant="outline" onClick={onDelete} className="text-destructive hover:text-destructive">
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete
-          </Button>
-          <Button variant="outline">
-            <BarChart2 className="h-4 w-4 mr-2" />
-            Analytics
-          </Button>
-        </div>
-      </CardContent>
     </Card>
   )
 }
-
