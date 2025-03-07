@@ -2,7 +2,8 @@
 
 # dependencies
 /node_modules
-
+.pnp
+.pnp.js
 # next.js
 /.next/
 /out/
@@ -26,3 +27,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/coverage
+.DS_Store
+*.pem
+
+.idea/
+.vscode/

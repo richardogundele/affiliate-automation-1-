@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AI-Driven Super Affiliate Automation Project
 
 ## Overview
@@ -35,3 +36,7 @@ This project is an advanced AI-powered affiliate marketing automation platform b
 
 1. Clone the repository:
 
+=======
+# affiliate-automation-1-
+affiliate-automation  AI super affiliate AI agent
+>>>>>>> aade563ef540ef81b04a74e42bd8783358cf9414
