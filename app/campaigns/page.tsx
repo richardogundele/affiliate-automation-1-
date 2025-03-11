@@ -67,12 +67,19 @@ export default function CampaignsPage() {
 
   const { data: campaignsData, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["campaigns"],
-    queryFn: fetchCampaigns,
+    queryFn: () => fetchCampaigns() as Promise<Campaign[]>,
   })
 
   const { data: productsData, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
-    queryFn: fetchProducts, // Use the same fetchProducts function from products page
+    queryFn: () => fetchProducts().then(products => products.map(product => ({
+      ...product,
+      price: product.price,
+      category: product.category,
+      affiliateLink: product.affiliateLink,
+      imageUrl: product.imageUrl,
+      created_at: product.created_at
+    }))),
     retry: false,
     initialData: []
   })
